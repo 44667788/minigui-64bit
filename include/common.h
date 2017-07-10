@@ -337,7 +337,7 @@ typedef unsigned int HCURSOR;
  * \var typedef unsigned int HICON
  * \brief Handle to icon.
  */
-typedef unsigned int HICON;
+typedef unsigned long  HICON;
 /**
  * \var typedef unsigned int HMENU
  * \brief Handle to menu.
