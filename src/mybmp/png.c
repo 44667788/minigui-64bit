@@ -41,7 +41,7 @@ static void my_read_data_fn (png_structp png_ptr, png_bytep data,
 {
    png_size_t check;
 
-   check = (png_size_t)MGUI_RWread ((MG_RWops*)png_ptr->io_ptr, 
+   check = (png_size_t)MGUI_RWread ((MG_RWops*)png_get_io_ptr(png_ptr), 
                    data, (png_size_t)1, length);
 
    if (check != length)
@@ -87,7 +87,7 @@ static int readpng_init (png_structpp png_pptr, png_infopp info_pptr,
     }
 
 #ifdef PNG_SETJMP_SUPPORTED
-    if (setjmp ((*png_pptr)->jmpbuf)) {
+    if (setjmp (png_jmpbuf(*png_pptr))) {
         png_destroy_read_struct (png_pptr, info_pptr, NULL);
         return _PNG_LIB_ERROR;
     }
@@ -199,7 +199,7 @@ void * __mg_init_png(MG_RWops * fp, MYBITMAP * mybmp, RGB * pal)
 #ifdef WIN32
         assert(0); /* XXX: */
 #else
-        png_set_gray_1_2_4_to_8(*png_ptr);
+        png_set_expand_gray_1_2_4_to_8(*png_ptr);
 #endif
 	}
 
@@ -239,7 +239,8 @@ void * __mg_init_png(MG_RWops * fp, MYBITMAP * mybmp, RGB * pal)
     }
 
     png_read_update_info (*png_ptr, *info_ptr);
-    mybmp->depth = (*info_ptr)->pixel_depth;
+    //mybmp->depth = (*info_ptr)->pixel_depth;
+    mybmp->depth=png_get_rowbytes(*png_ptr,*info_ptr)/png_get_image_width(*png_ptr,*info_ptr)*8;
     if (mybmp->depth == 24)
         mybmp->flags |= MYBMP_RGBSIZE_3;
     else
@@ -284,10 +285,11 @@ int __mg_load_png (MG_RWops * fp, void * init_info, MYBITMAP * my_bmp,
     else
         p = my_bmp->pitch;
 
-    image_height = info->png_ptr->height;
-    info->png_ptr->num_rows = image_height;
+    //image_height = info->png_ptr->height;
+    image_height=png_get_image_height(info->png_ptr,info->info_ptr);
+    //info->png_ptr->num_rows = image_height;
 
-    if (info->png_ptr->interlaced) {
+    if (png_get_interlace_type(info->png_ptr,info->info_ptr)) {
         bits = (png_bytep)malloc(my_bmp->pitch * image_height);
         if (!bits)
             return ERR_BMP_MEM;
@@ -295,8 +297,8 @@ int __mg_load_png (MG_RWops * fp, void * init_info, MYBITMAP * my_bmp,
     }
 
 #ifdef PNG_SETJMP_SUPPORTED
-    if (setjmp (info->png_ptr->jmpbuf)) {
-        if (info->png_ptr->interlaced) {
+    if (setjmp (png_jmpbuf(info->png_ptr))) {
+        if (png_get_interlace_type(info->png_ptr,info->info_ptr)) {
             free (bits);
         }
         return ERR_BMP_LOAD;
@@ -313,7 +315,7 @@ int __mg_load_png (MG_RWops * fp, void * init_info, MYBITMAP * my_bmp,
 
     png_read_end(info->png_ptr, NULL);
 
-    if (info->png_ptr->interlaced) {
+    if (png_get_interlace_type(info->png_ptr,info->info_ptr)) {
         rp = (png_bytep)my_bmp->bits;
         my_bmp->bits = (BYTE *)bits;
         if (cb) for (i = 0; i < image_height; i++, my_bmp->bits += p)
